@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Solution Creator</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      text-align: center;
+    }
+
+    #container {
+      position: relative;
+      width: 1200px;
+      height: 800px;
+      margin: 0 auto;
+      background: url('BusyDay.png') no-repeat center center;
+      background-size: cover;
+      border: 2px solid #ccc;
+    }
+
+    .label {
+      position: absolute;
+      background: #e0e0ff;
+      border: 1px solid #333;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: move;
+      user-select: none;
+    }
+
+    textarea {
+      width: 100%;
+      height: 150px;
+      margin-top: 10px;
+      font-family: monospace;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 8px 16px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Create Solution: Drag Labels on the Image</h2>
+<div id="container"></div>
+
+<div style="margin-top: 20px;">
+  <button onclick="addLabel()">Add Label</button>
+  <button onclick="exportSolution()">Export Solution</button>
+  <button onclick="importSolution()">Import Solution</button>
+</div>
+
+<textarea id="solutionArea" placeholder="Paste Base64 or JSON solution here..."></textarea>
+
+<script>
+  let draggedLabel = null;
+  let labelCounter = 0;
+  const container = document.getElementById('container');
+
+  function addLabel() {
+    const labelText = prompt("Enter label text:");
+    if (!labelText) return;
+
+    labelCounter++;
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.id = `label${labelCounter}`;
+    label.textContent = labelText;
+    label.dataset.labelText = labelText;
+    label.style.left = '10px';
+    label.style.top = `${10 + labelCounter * 40}px`;
+
+    label.addEventListener('mousedown', () => {
+      draggedLabel = label;
+    });
+
+    container.appendChild(label);
+  }
+
+  document.addEventListener('mouseup', () => {
+    draggedLabel = null;
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!draggedLabel) return;
+
+    const rect = container.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    draggedLabel.style.left = `${x - draggedLabel.offsetWidth / 2}px`;
+    draggedLabel.style.top = `${y - draggedLabel.offsetHeight / 2}px`;
+  });
+
+  function exportSolution() {
+    const result = {};
+    const rect = container.getBoundingClientRect();
+
+    document.querySelectorAll('.label').forEach(label => {
+      const labelRect = label.getBoundingClientRect();
+      const x = labelRect.left - rect.left + label.offsetWidth / 2;
+      const y = labelRect.top - rect.top + label.offsetHeight / 2;
+
+      result[label.id] = {
+        x: Math.round(x),
+        y: Math.round(y),
+        text: label.dataset.labelText
+      };
+    });
+
+    const jsonString = JSON.stringify(result, null, 2);
+    const base64 = btoa(jsonString);
+
+    document.getElementById('solutionArea').value =
+      `Base64:\n${base64}\n\nPlain JSON:\n${jsonString}`;
+  }
+
+  function importSolution() {
+    const input = document.getElementById('solutionArea').value.trim();
+    let json = null;
+
+    try {
+      const decoded = atob(input);
+      json = JSON.parse(decoded);
+    } catch {
+      try {
+        json = JSON.parse(input);
+      } catch {
+        alert("Invalid Base64 or JSON.");
+        return;
+      }
+    }
+
+    container.innerHTML = '';
+    labelCounter = 0;
+
+    Object.entries(json).forEach(([id, data]) => {
+      labelCounter++;
+      const label = document.createElement('div');
+      label.className = 'label';
+      label.id = id;
+      label.textContent = data.text || `Label ${labelCounter}`;
+      label.dataset.labelText = data.text || `Label ${labelCounter}`;
+
+      // First place temporarily at top-left
+      label.style.left = `0px`;
+      label.style.top = `0px`;
+
+      label.addEventListener('mousedown', () => {
+        draggedLabel = label;
+      });
+
+      container.appendChild(label); // ← Important: add to DOM first
+
+      // Now compute size and adjust position
+      const x = data.x - label.offsetWidth / 2;
+      const y = data.y - label.offsetHeight / 2;
+      label.style.left = `${x}px`;
+      label.style.top = `${y}px`;
+    });
+  }
+</script>
+
+</body>
+</html>

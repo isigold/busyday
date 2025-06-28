@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Label Quiz</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      text-align: center;
+    }
+
+    #container {
+      position: relative;
+      width: 1200px;
+      height: 800px;
+      margin: 0 auto;
+      background: url('BusyDay.png') no-repeat center center;
+      background-size: cover;
+      border: 2px solid #ccc;
+    }
+
+    .label {
+      position: absolute;
+      background: #f0f0f0;
+      border: 1px solid #333;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: move;
+      user-select: none;
+    }
+
+    #solutionInput {
+      width: 100%;
+      height: 150px;
+      margin-top: 10px;
+      font-family: monospace;
+    }
+
+    button {
+      margin: 10px 5px;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Label the Image</h2>
+<div id="container"></div>
+<button id="checkBtn">Check</button>
+
+<script>
+// Base64-encoded solution (from creator export)
+const base64Solution = "ewogICJsYWJlbDEiOiB7CiAgICAieCI6IDU5MiwKICAgICJ5IjogNDUsCiAgICAidGV4dCI6ICJXaWJieSIKICB9LAogICJsYWJlbDIiOiB7CiAgICAieCI6IDMxNywKICAgICJ5IjogMzQzLAogICAgInRleHQiOiAiRmxvb2YiCiAgfSwKICAibGFiZWwzIjogewogICAgIngiOiA0MTMsCiAgICAieSI6IDQ1OSwKICAgICJ0ZXh0IjogIkxvb2NoIgogIH0sCiAgImxhYmVsNCI6IHsKICAgICJ4IjogNDIxLAogICAgInkiOiA2MjAsCiAgICAidGV4dCI6ICJCb3AiCiAgfSwKICAibGFiZWw1IjogewogICAgIngiOiA1MDMsCiAgICAieSI6IDY4NywKICAgICJ0ZXh0IjogIlNxdWVlIgogIH0sCiAgImxhYmVsNiI6IHsKICAgICJ4IjogMTgyLAogICAgInkiOiA1NzQsCiAgICAidGV4dCI6ICJQbGluayIKICB9LAogICJsYWJlbDciOiB7CiAgICAieCI6IDEwNiwKICAgICJ5IjogMTIxLAogICAgInRleHQiOiAiRHJpdCIKICB9Cn0=";
+
+// Decode and parse
+let solution;
+try {
+  solution = JSON.parse(atob(base64Solution));
+} catch {
+  alert("Failed to load embedded solution.");
+}
+
+const threshold = 50;
+const cooldownSeconds = 10;
+let dragged = null;
+
+// Create labels
+function createLabel(id, text) {
+  const label = document.createElement('div');
+  label.id = id;
+  label.textContent = text;
+  label.className = 'label';
+  label.style.left = `${20}px`;
+  label.style.top = `${40 + id * 40}px`;
+
+  label.addEventListener('mousedown', () => {
+    if (label.dataset.locked === "true") return;
+    dragged = label;
+  });
+
+  return label;
+}
+
+// Build interface
+function init() {
+  const container = document.getElementById('container');
+  Object.entries(solution).forEach(([id, data]) => {
+    const label = createLabel(id, data.text || id);
+    container.appendChild(label);
+  });
+}
+
+function checkAllPlaced() {
+  const allCorrect = Object.keys(solution).every(id => {
+    const el = document.getElementById(id);
+    return el?.dataset.locked === "true";
+  });
+
+  if (allCorrect) {
+    const btn = document.getElementById('checkBtn');
+    btn.disabled = true;
+    btn.textContent = "🎉 All labels placed correctly!";
+    fireConfetti();
+    return true;
+  }
+
+  return false;
+}
+
+function fireConfetti() {
+  confetti({
+    particleCount: 150,
+    spread: 70,
+    origin: { y: 0.6 }
+  });
+}
+
+document.addEventListener('mouseup', () => {
+  dragged = null;
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!dragged) return;
+  const container = document.getElementById('container');
+  const rect = container.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  dragged.style.left = `${x - dragged.offsetWidth / 2}px`;
+  dragged.style.top = `${y - dragged.offsetHeight / 2}px`;
+});
+
+document.getElementById('checkBtn').addEventListener('click', () => {
+  const container = document.getElementById('container');
+  const rect = container.getBoundingClientRect();
+
+  Object.entries(solution).forEach(([id, sol]) => {
+    const label = document.getElementById(id);
+    if (!label || label.dataset.locked === "true") return;
+
+    const labelRect = label.getBoundingClientRect();
+    const x = labelRect.left - rect.left + label.offsetWidth / 2;
+    const y = labelRect.top - rect.top + label.offsetHeight / 2;
+
+    const dx = x - sol.x;
+    const dy = y - sol.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance <= threshold) {
+      label.style.left = `${sol.x - label.offsetWidth / 2}px`;
+      label.style.top = `${sol.y - label.offsetHeight / 2}px`;
+      label.style.background = '#a0f0a0';
+      label.dataset.locked = "true";
+    } else {
+      label.style.background = '#f0a0a0';
+    }
+  });
+
+  const done = checkAllPlaced();
+  if (!done) startCooldown();
+});
+
+function startCooldown() {
+  const btn = document.getElementById('checkBtn');
+  let secondsLeft = cooldownSeconds;
+  btn.disabled = true;
+  btn.textContent = `Try again in ${secondsLeft}s`;
+
+  const interval = setInterval(() => {
+    secondsLeft--;
+    btn.textContent = `Try again in ${secondsLeft}s`;
+    if (secondsLeft <= 0) {
+      clearInterval(interval);
+      btn.disabled = false;
+      btn.textContent = "Check";
+    }
+  }, 1000);
+}
+
+init();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+</body>
+</html>
