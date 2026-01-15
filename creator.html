@@ -99,12 +99,10 @@
 
   function exportSolution() {
     const result = {};
-    const rect = container.getBoundingClientRect();
 
     document.querySelectorAll('.label').forEach(label => {
-      const labelRect = label.getBoundingClientRect();
-      const x = labelRect.left - rect.left + label.offsetWidth / 2;
-      const y = labelRect.top - rect.top + label.offsetHeight / 2;
+      const x = parseFloat(label.style.left) + label.offsetWidth / 2;
+      const y = parseFloat(label.style.top) + label.offsetHeight / 2;
 
       result[label.id] = {
         x: Math.round(x),
