@@ -21,6 +21,11 @@
     }
     /* keep container to the right and stack check button under it */
     .main { flex:1; overflow: auto; }
+    #game-select-overlay, #game-start-overlay {
+      position: fixed; inset: 0; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,1); z-index: 9999;
+    }
+    #game-select-overlay .overlay-content, #game-start-overlay .overlay-content { background: #fff; padding:20px; border-radius:8px; max-width:90%; max-height:90%; overflow:auto; }
+    #game-list button { display:block; margin:8px 0; padding:8px 12px; width:100%; }
 
 
     body {
@@ -37,7 +42,7 @@
       width: 1200px;
       height: 800px;
       margin: 0 auto;
-      background: url('BusyDay.png') no-repeat center center;
+      background: #333 no-repeat center center;
       background-size: cover;
       border: 2px solid #ccc;
     }
@@ -102,7 +107,7 @@
   <div class="content">
     <aside id="label_column">
       <button id="checkBtn">Check</button>
-      <h2>Label the Image</h2>
+      <h2 id="labelHeading">Label the Image</h2>
       <div id="size-controls">
         <button id="zoom-in">+</button>
         <button id="zoom-out">-</button>
@@ -115,16 +120,31 @@
     </div>
   </div>
 </div>
+    <div id="game-select-overlay" style="display:none">
+      <div class="overlay-content">
+        <h2>Select a game</h2>
+        <div id="game-list"></div>
+      </div>
+    </div>
+
+    <div id="game-start-overlay" style="display:none">
+      <div class="overlay-content">
+        <h2 id="start-game-name"></h2>
+        <button id="startGameBtn">Start</button>
+      </div>
+    </div>
 
 <script>
 const games = [
-  { 
+  {
+    "name": "Busy Day",
     "img": "BusyDay.png",
     "width": 1200,
     "height": 800,
     "solution": "ewogICJsYWJlbDEiOiB7CiAgICAieCI6IDU5MiwKICAgICJ5IjogNDUsCiAgICAidGV4dCI6ICJXaWJieSIKICB9LAogICJsYWJlbDIiOiB7CiAgICAieCI6IDMxNywKICAgICJ5IjogMzQzLAogICAgInRleHQiOiAiRmxvb2YiCiAgfSwKICAibGFiZWwzIjogewogICAgIngiOiA0MTMsCiAgICAieSI6IDQ1OSwKICAgICJ0ZXh0IjogIkxvb2NoIgogIH0sCiAgImxhYmVsNCI6IHsKICAgICJ4IjogNDIxLAogICAgInkiOiA2MjAsCiAgICAidGV4dCI6ICJCb3AiCiAgfSwKICAibGFiZWw1IjogewogICAgIngiOiA1MDMsCiAgICAieSI6IDY4NywKICAgICJ0ZXh0IjogIlNxdWVlIgogIH0sCiAgImxhYmVsNiI6IHsKICAgICJ4IjogMTgyLAogICAgInkiOiA1NzQsCiAgICAidGV4dCI6ICJQbGluayIKICB9LAogICJsYWJlbDciOiB7CiAgICAieCI6IDEwNiwKICAgICJ5IjogMTIxLAogICAgInRleHQiOiAiRHJpdCIKICB9Cn0="
   },
   {
+    "name": "Isigold Maps 2025",
     "img": "MapOverviews.png",
     "width": 2048,
     "height": 2048,
@@ -133,39 +153,82 @@ const games = [
 ];
 const urlParams = new URLSearchParams(window.location.search);
 const gameParam = urlParams.get('game');
-const gameIndex = gameParam && !isNaN(gameParam) && gameParam < games.length
-  ? gameParam
-  : 0;
- 
-const base64Solution = games[gameIndex].solution;
-const imgSrc = games[gameIndex].img;
-const gameWidth = games[gameIndex].width;
-const gameHeight = games[gameIndex].height;
-document.getElementById('container').style.width = `${gameWidth}px`;
-document.getElementById('container').style.height = `${gameHeight}px`;
-document.getElementById('container').style.backgroundImage = `url('${imgSrc}')`;
+const hasGameParam = gameParam !== null && !isNaN(parseInt(gameParam)) && parseInt(gameParam) >= 0 && parseInt(gameParam) < games.length;
+const gameIndex = hasGameParam ? parseInt(gameParam) : null;
 
-const main = document.querySelector('.main');
-main.style.minWidth = `${gameWidth}px`;
-
-const scrollAnchor = document.createElement('div');
-scrollAnchor.style.height = `${gameHeight}px`;
-container.appendChild(scrollAnchor);
-
-// Decode and parse
-let solution;
-try {
-  solution = JSON.parse(atob(base64Solution));
-} catch {
-  alert("Failed to load embedded solution.");
-}
-
+let containerElem = null;
+let solution = null;
 const threshold = 80;
 const magnetSnapDistance = threshold;
 const cooldownSeconds = 10;
 let dragged = null;
 let imgScale = 1;
 const baseHeight = 200;
+
+const main = document.querySelector('.main');
+
+// Populate game selection if needed
+const selectOverlay = document.getElementById('game-select-overlay');
+const startOverlay = document.getElementById('game-start-overlay');
+const gameListDiv = document.getElementById('game-list');
+const startName = document.getElementById('start-game-name');
+const startBtn = document.getElementById('startGameBtn');
+
+function showSelection() {
+  selectOverlay.style.display = 'flex';
+  games.forEach((g, i) => {
+    const b = document.createElement('button');
+    b.textContent = `${i}: ${g.name}`;
+    b.addEventListener('click', () => {
+      const p = new URLSearchParams(window.location.search);
+      p.set('game', String(i));
+      window.location.search = p.toString();
+    });
+    gameListDiv.appendChild(b);
+  });
+}
+
+function showStartDialog(index) {
+  startName.textContent = games[index].name;
+  startOverlay.style.display = 'flex';
+  loadGame(index);
+  startBtn.onclick = () => {
+    startOverlay.style.display = 'none';
+  };
+}
+
+function loadGame(index) {
+  const g = games[index];
+  document.title = `${g.name} - Label Quiz`;
+  document.getElementById('labelHeading').textContent = `${g.name}`;
+
+  containerElem = document.getElementById('container');
+  containerElem.style.width = `${g.width}px`;
+  containerElem.style.height = `${g.height}px`;
+  containerElem.style.backgroundImage = `url('${g.img}')`;
+  main.style.minWidth = `${g.width}px`;
+
+  const scrollAnchor = document.createElement('div');
+  scrollAnchor.style.height = `${g.height}px`;
+  containerElem.appendChild(scrollAnchor);
+
+  // decode and init
+  try {
+    solution = JSON.parse(atob(g.solution));
+  } catch (e) {
+    alert('Failed to load embedded solution.');
+    return;
+  }
+
+  init();
+}
+
+// If no game param, show selection UI
+if (!hasGameParam) {
+  showSelection();
+} else {
+  showStartDialog(gameIndex);
+}
 
 // Create labels
 function createLabel(id, text, imageSrc = null) {
@@ -177,7 +240,6 @@ function createLabel(id, text, imageSrc = null) {
   label.style.left = `${20}px`;
   label.style.top = `${40 + numId * 40}px`;
 
-  //include image if provided
   if (imageSrc) {
     const img = document.createElement('img');
     img.src = imageSrc;
@@ -186,21 +248,20 @@ function createLabel(id, text, imageSrc = null) {
   }
 
   label.addEventListener('mousedown', () => {
-    if (label.dataset.locked === "true") return;
+    if (label.dataset.locked === 'true') return;
     dragged = label;
   });
 
   return label;
 }
 
-// Updated the init function to populate the `label_imgs` section and use `createLabel` to arrange labels on the left
 function init() {
-  const container = document.getElementById('container');
   const labelImgsDiv = document.getElementById('label_imgs');
+  labelImgsDiv.innerHTML = '';
 
   Object.entries(solution).forEach(([id, data]) => {
     const label = createLabel(id, data.text || id, data.img || null);
-    container.appendChild(label);
+    containerElem.appendChild(label);
 
     if (data.img) {
       const wrapper = document.createElement('div');
@@ -208,7 +269,7 @@ function init() {
       wrapper.style.backgroundImage = `url('${data.img}')`;
       labelImgsDiv.appendChild(wrapper);
       const imglabel = document.createElement('div');
-      imglabel.id = `img${id}`; 
+      imglabel.id = `img${id}`;
       imglabel.textContent = data.text || id;
       imglabel.className = 'labelimglabel';
       wrapper.appendChild(imglabel);
@@ -217,7 +278,7 @@ function init() {
 }
 
 function getLabelCenter(label) {
-  const rect = container.getBoundingClientRect();
+  const rect = containerElem.getBoundingClientRect();
   const labelRect = label.getBoundingClientRect();
   return {
     x: labelRect.left - rect.left + label.offsetWidth / 2,
@@ -228,7 +289,7 @@ function getLabelCenter(label) {
 function tryMagnetSnap(label) {
   const labelData = solution[label.id];
   if (!labelData || labelData.magnet !== true) {
-    label.classList.remove("magnet-snapped");
+    label.classList.remove('magnet-snapped');
     return;
   }
 
@@ -237,11 +298,9 @@ function tryMagnetSnap(label) {
 
   Object.entries(solution).forEach(([_, sol]) => {
     if (sol.magnet !== true) return;
-
     const dx = center.x - sol.x;
     const dy = center.y - sol.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-
     if (dist <= magnetSnapDistance) {
       label.style.left = `${sol.x - label.offsetWidth / 2}px`;
       label.style.top = `${sol.y - label.offsetHeight / 2}px`;
@@ -249,77 +308,61 @@ function tryMagnetSnap(label) {
     }
   });
 
-  label.classList.toggle("magnet-snapped", snapped);
+  label.classList.toggle('magnet-snapped', snapped);
 }
 
 function checkAllPlaced() {
   const allCorrect = Object.keys(solution).every(id => {
     const el = document.getElementById(id);
-    return el?.dataset.locked === "true";
+    return el?.dataset.locked === 'true';
   });
 
   if (allCorrect) {
     const btn = document.getElementById('checkBtn');
-    btn.textContent = "🎉 All labels placed correctly!";
+    btn.textContent = '🎉 All labels placed correctly!';
     fireConfetti();
     return true;
   }
-
   return false;
 }
 
 function fireConfetti() {
-  confetti({
-    particleCount: 150,
-    spread: 70,
-    origin: { y: 0.6 }
-  });
+  confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
 }
 
-document.addEventListener('mouseup', () => {
-  dragged = null;
-});
+document.addEventListener('mouseup', () => { dragged = null; });
 
 document.addEventListener('mousemove', (e) => {
-  if (!dragged) return;
-
-  const rect = container.getBoundingClientRect();
+  if (!dragged || !containerElem) return;
+  const rect = containerElem.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
-
   dragged.style.left = `${x - dragged.offsetWidth / 2}px`;
   dragged.style.top = `${y - dragged.offsetHeight / 2}px`;
-
   tryMagnetSnap(dragged);
 });
 
 document.getElementById('checkBtn').addEventListener('click', () => {
-  const container = document.getElementById('container');
-  const rect = container.getBoundingClientRect();
-
+  if (!containerElem) return;
+  const rect = containerElem.getBoundingClientRect();
   Object.entries(solution).forEach(([id, sol]) => {
     const label = document.getElementById(id);
-    if (!label || label.dataset.locked === "true") return;
-
-    const labelRect = label.getBoundingClientRect();
-    const x = labelRect.left - rect.left + label.offsetWidth / 2;
-    const y = labelRect.top - rect.top + label.offsetHeight / 2;
-
+    if (!label || label.dataset.locked === 'true') return;
+    const x = parseFloat(label.style.left) + label.offsetWidth / 2;
+    const y = parseFloat(label.style.top) + label.offsetHeight / 2;
     const dx = x - sol.x;
     const dy = y - sol.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
-
     if (distance <= threshold) {
       label.style.left = `${sol.x - label.offsetWidth / 2}px`;
       label.style.top = `${sol.y - label.offsetHeight / 2}px`;
-      label.dataset.locked = "true";
-      label.classList.remove("magnet-snapped");
-      label.classList.add("correct");
+      label.dataset.locked = 'true';
+      label.classList.remove('wrong');
+      label.classList.add('correct');
     } else {
-      label.classList.add("wrong");
+      label.classList.add('wrong');
     }
   });
-
   const done = checkAllPlaced();
   if (!done) startCooldown();
 });
@@ -329,36 +372,20 @@ function startCooldown() {
   let secondsLeft = cooldownSeconds;
   btn.disabled = true;
   btn.textContent = `Try again in ${secondsLeft}s`;
-
   const interval = setInterval(() => {
     secondsLeft--;
     btn.textContent = `Try again in ${secondsLeft}s`;
-    if (secondsLeft <= 0) {
-      clearInterval(interval);
-      btn.disabled = false;
-      btn.textContent = "Check";
-    }
+    if (secondsLeft <= 0) { clearInterval(interval); btn.disabled = false; btn.textContent = 'Check'; }
   }, 1000);
 }
 
 function updateImgSize() {
   const height = baseHeight * imgScale;
-  document.querySelectorAll('.label-img-wrapper').forEach(wrapper => {
-    wrapper.style.minHeight = `${height}px`;
-  });
+  document.querySelectorAll('.label-img-wrapper').forEach(wrapper => { wrapper.style.minHeight = `${height}px`; });
 }
 
-document.getElementById('zoom-in').addEventListener('click', () => {
-  imgScale = Math.min(imgScale + 0.1, 10);
-  updateImgSize();
-});
-
-document.getElementById('zoom-out').addEventListener('click', () => {
-  imgScale = Math.max(imgScale - 0.1, 0.5);
-  updateImgSize();
-});
-
-init();
+document.getElementById('zoom-in').addEventListener('click', () => { imgScale = Math.min(imgScale + 0.1, 10); updateImgSize(); });
+document.getElementById('zoom-out').addEventListener('click', () => { imgScale = Math.max(imgScale - 0.1, 0.5); updateImgSize(); });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
