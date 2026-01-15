@@ -114,6 +114,9 @@
       if (label.dataset.magnet === "true") {
         result[label.id].magnet = true;
       }
+      if (label.dataset.img) {
+        result[label.id].img = label.dataset.img;
+      }
     });
 
     const jsonString = JSON.stringify(result, null, 2);
@@ -151,6 +154,9 @@
       label.dataset.labelText = data.text || `Label ${labelCounter}`;
       if (data.magnet === true) {
         label.dataset.magnet = "true";
+      }
+      if (data.img) {
+        label.dataset.img = data.img
       }
 
       // First place temporarily at top-left
