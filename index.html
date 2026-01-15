@@ -4,13 +4,14 @@
   <meta charset="UTF-8" />
   <title>Label Quiz</title>
   <style>
-    .layout { display:flex; align-items:stretch; justify-content:center; gap:12px; max-width:100%; margin:0 auto; }
-    #label_column { overflow:auto; flex:1 1 0; min-width:0; max-width:1024px; box-sizing:border-box; padding:8px; }
+    .layout { display:flex; flex-direction:column; gap:10px; max-width:100%; margin:0 auto; height: 100%; padding: 20px; box-sizing: border-box; }
+    .content { display:flex; align-items:stretch; justify-content:center; gap:12px; flex:1; overflow: auto; }
+    #label_column { overflow:auto; flex:1 1 0; min-width:0; max-width:1024px; box-sizing:border-box; padding:8px; max-height: 100%; }
     #label_imgs { display:flex; flex-direction:column; gap:8px; }
     /* force label image wrappers to scale to available column width (override inline width set by JS) */
     .label-img-wrapper {
       width:100%;
-      min-height:96px;
+      min-height:200px;
       margin: 5px;
       display: inline-block;
       position: relative;
@@ -19,13 +20,16 @@
       background-position:center;
     }
     /* keep container to the right and stack check button under it */
-    .main { flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:10px; }
+    .main { flex:1; overflow: auto; }
 
 
     body {
       font-family: sans-serif;
-      padding: 20px;
       text-align: center;
+      height: 100vh;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
     }
 
     #container {
@@ -55,6 +59,12 @@
       cursor: move;
       user-select: none;
     }
+    .label img {
+      cursor: move;
+      user-select: none;
+      margin-left: 5px;
+      vertical-align: middle;
+      width: 75px;}
     .label.magnet-snapped {
       border: 3px solid #000;
     }
@@ -64,34 +74,39 @@
       margin-top: 10px;
       font-family: monospace;
     }
-
-    button {
+    #checkBtn {
       margin: 10px 5px;
       padding: 10px 20px;
       font-size: 16px;
+    }
+    #size-controls {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 10px;
     }
   </style>
 </head>
 <body>
 
-<style>
-  /* Layout: scrollable column left of the container, column fills remaining horizontal space up to 1024px */
-</style>
-
 <div class="layout">
-  <aside id="label_column">
-    <h2>Label the Image</h2>
-    <div id="label_imgs"></div>
-  </aside>
+  <div class="content">
+    <aside id="label_column">
+      <button id="checkBtn">Check</button>
+      <h2>Label the Image</h2>
+      <div id="size-controls">
+        <button id="zoom-in">+</button>
+        <button id="zoom-out">-</button>
+      </div>
+      <div id="label_imgs"></div>
+    </aside>
 
-  <div class="main">
-    <div id="container"></div>
-    <button id="checkBtn">Check</button>
+    <div class="main">
+      <div id="container"></div>
+    </div>
   </div>
 </div>
 
 <script>
-// Base64-encoded solution (from creator export)
 const games = [
   { 
     "img": "BusyDay.png",
@@ -121,6 +136,13 @@ document.getElementById('container').style.width = `${gameWidth}px`;
 document.getElementById('container').style.height = `${gameHeight}px`;
 document.getElementById('container').style.backgroundImage = `url('${imgSrc}')`;
 
+const main = document.querySelector('.main');
+main.style.minWidth = `${gameWidth}px`;
+
+const scrollAnchor = document.createElement('div');
+scrollAnchor.style.height = `${gameHeight}px`;
+container.appendChild(scrollAnchor);
+
 // populate label images if any
 const labelImgs = games[gameIndex].labelimgs || null;
 if (labelImgs) {
@@ -132,7 +154,7 @@ if (labelImgs) {
     labelImgsDiv.appendChild(wrapper);
 
     const label = document.createElement('div');
-    label.id = `label${id}`; 
+    label.id = `img${id}`; 
     label.textContent = id;
     label.className = 'labelimglabel';
     wrapper.appendChild(label);
@@ -151,6 +173,8 @@ const threshold = 80;
 const magnetSnapDistance = threshold;
 const cooldownSeconds = 10;
 let dragged = null;
+let imgScale = 1;
+const baseHeight = 200;
 
 // Create labels
 function createLabel(id, text, imageSrc = null) {
@@ -158,15 +182,15 @@ function createLabel(id, text, imageSrc = null) {
   label.id = id;
   label.textContent = text;
   label.className = 'label';
+  const numId = parseInt(id.replace(/\D/g, '')) || 0;
   label.style.left = `${20}px`;
-  label.style.top = `${40 + id * 40}px`;
+  label.style.top = `${40 + numId * 40}px`;
 
   //include image if provided
   if (imageSrc) {
     const img = document.createElement('img');
     img.src = imageSrc;
-    img.style.width = '50px';
-    img.style.display = 'block';
+    img.draggable = false;
     label.appendChild(img);
   }
 
@@ -178,11 +202,19 @@ function createLabel(id, text, imageSrc = null) {
   return label;
 }
 
+function findLabelImage(id) {
+  const labelImgs = games[gameIndex].labelimgs || null;
+  if (labelImgs && labelImgs[id]) {
+    return labelImgs[id];
+  }
+  return null;
+}
+
 // Build interface
 function init() {
   const container = document.getElementById('container');
   Object.entries(solution).forEach(([id, data]) => {
-    const label = createLabel(id, data.text || id);
+    const label = createLabel(id, data.text || id, findLabelImage(data.text || id));
     container.appendChild(label);
   });
 }
@@ -311,6 +343,23 @@ function startCooldown() {
     }
   }, 1000);
 }
+
+function updateImgSize() {
+  const height = baseHeight * imgScale;
+  document.querySelectorAll('.label-img-wrapper').forEach(wrapper => {
+    wrapper.style.minHeight = `${height}px`;
+  });
+}
+
+document.getElementById('zoom-in').addEventListener('click', () => {
+  imgScale = Math.min(imgScale + 0.1, 10);
+  updateImgSize();
+});
+
+document.getElementById('zoom-out').addEventListener('click', () => {
+  imgScale = Math.max(imgScale - 0.1, 0.5);
+  updateImgSize();
+});
 
 init();
 </script>
