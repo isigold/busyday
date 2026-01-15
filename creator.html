@@ -12,10 +12,10 @@
 
     #container {
       position: relative;
-      width: 1200px;
-      height: 800px;
+      width: 2048px;
+      height: 2048px;
       margin: 0 auto;
-      background: url('BusyDay.png') no-repeat center center;
+      background: url('MapOverviews.png') no-repeat center center;
       background-size: cover;
       border: 2px solid #ccc;
     }
@@ -111,6 +111,9 @@
         y: Math.round(y),
         text: label.dataset.labelText
       };
+      if (label.dataset.magnet === "true") {
+        result[label.id].magnet = true;
+      }
     });
 
     const jsonString = JSON.stringify(result, null, 2);
@@ -146,6 +149,9 @@
       label.id = id;
       label.textContent = data.text || `Label ${labelCounter}`;
       label.dataset.labelText = data.text || `Label ${labelCounter}`;
+      if (data.magnet === true) {
+        label.dataset.magnet = "true";
+      }
 
       // First place temporarily at top-left
       label.style.left = `0px`;
