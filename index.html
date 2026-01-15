@@ -59,8 +59,18 @@
       cursor: move;
       user-select: none;
     }
+    .label.correct {
+      background-color: #d4edda;
+      border-color: #c3e6cb;
+      color: #155724;
+      cursor: default;
+    }
+    .label.wrong {
+      background-color: #f8d7da;
+      border-color: #f5c6cb;
+      color: #721c24;
+    }
     .label img {
-      cursor: move;
       user-select: none;
       margin-left: 5px;
       vertical-align: middle;
@@ -302,11 +312,11 @@ document.getElementById('checkBtn').addEventListener('click', () => {
     if (distance <= threshold) {
       label.style.left = `${sol.x - label.offsetWidth / 2}px`;
       label.style.top = `${sol.y - label.offsetHeight / 2}px`;
-      label.style.background = '#a0f0a0';
       label.dataset.locked = "true";
       label.classList.remove("magnet-snapped");
+      label.classList.add("correct");
     } else {
-      label.style.background = '#f0a0a0';
+      label.classList.add("wrong");
     }
   });
 
