@@ -3,114 +3,250 @@
 <head>
   <meta charset="UTF-8" />
   <title>Label Quiz</title>
-  <style>
-    .layout { display:flex; flex-direction:column; gap:10px; max-width:100%; margin:0 auto; height: 100%; padding: 20px; box-sizing: border-box; }
-    .content { display:flex; align-items:stretch; justify-content:flex-start; gap:12px; flex:1; overflow: auto; }
-    /* Make the left column a column layout so header controls stay fixed and only the images list scrolls */
-    #label_column { display:flex; flex-direction:column; overflow: visible; flex:1 1 0; min-width:0; max-width:1024px; box-sizing:border-box; padding:8px; }
-    /* The list of label image previews scrolls independently */
-    #label_imgs { display:flex; flex-direction:column; gap:8px; overflow:auto; flex:1 1 0; min-height:0; }
-    /* force label image wrappers to scale to available column width (override inline width set by JS) */
-    .label-img-wrapper {
-      width:100%;
-      min-height:200px;
-      margin: 5px;
-      display: inline-block;
-      position: relative;
-      background-size:contain;
-      background-repeat:no-repeat;
-      background-position:center;
-    }
-    /* keep container to the right and stack check button under it */
-    .main { flex:1; overflow: auto; }
-    #game-select-overlay, #game-start-overlay {
-      position: fixed; inset: 0; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,1); z-index: 9999;
-    }
-    #game-select-overlay .overlay-content, #game-start-overlay .overlay-content { background: #fff; padding:20px; border-radius:8px; max-width:90%; max-height:90%; overflow:auto; }
-    #game-list button { display:block; margin:8px 0; padding:8px 12px; width:100%; }
+<style>
+  :root {
+    --purple-dark: #2b0f3f;
+    --purple-mid: #4b1f6f;
+    --purple-light: #6a2ca0;
+    --orange-accent: #ff9f1c;
+    --orange-soft: #ffd199;
+    --panel-bg: rgba(255, 255, 255, 0.92);
+    --border-soft: rgba(0,0,0,0.15);
+    --shadow-soft: 0 8px 24px rgba(0,0,0,0.25);
+  }
 
+  body {
+    font-family: "Segoe UI", system-ui, sans-serif;
+    text-align: center;
+    height: 100vh;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(135deg, var(--purple-dark), var(--purple-mid), var(--purple-light));
+    color: #1f1f1f;
+  }
 
-    body {
-      font-family: sans-serif;
-      text-align: center;
-      height: 100vh;
-      overflow: hidden;
-      margin: 0;
-      padding: 0;
-    }
+  /* Layout shell */
+  .layout {
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    max-width:100%;
+    margin:0 auto;
+    height: 100%;
+    padding: 16px;
+    box-sizing: border-box;
+  }
 
-    #container {
-      position: relative;
-      width: 1200px;
-      height: 800px;
-      margin: 0 auto;
-      background: #333 no-repeat center center;
-      background-size: cover;
-      border: 2px solid #ccc;
-    }
+  .content {
+    display:flex;
+    align-items:stretch;
+    justify-content:flex-start;
+    gap:12px;
+    flex:1;
+    overflow: hidden;
+  }
 
-    .labelimglabel {
-      background: #f0f0f0;
-      border: 1px solid #333;
-      padding: 5px 10px;
-      border-radius: 5px;
-      position: absolute;
-      bottom: 5px;
-    }
-    .label {
-      position: absolute;
-      background: #f0f0f0;
-      border: 1px solid #333;
-      padding: 5px 10px;
-      border-radius: 5px;
-      cursor: move;
-      user-select: none;
-    }
-    .label.correct {
-      background-color: #d4edda;
-      border-color: #c3e6cb;
-      color: #155724;
-      cursor: default;
-    }
-    .label.wrong {
-      background-color: #f8d7da;
-      border-color: #f5c6cb;
-      color: #721c24;
-    }
-    .label img {
-      user-select: none;
-      margin-left: 5px;
-      vertical-align: middle;
-      width: 75px;}
-    .label.magnet-snapped {
-      border: 3px solid #000;
-    }
-    #solutionInput {
-      width: 100%;
-      height: 150px;
-      margin-top: 10px;
-      font-family: monospace;
-    }
-    #checkBtn {
-      margin: 10px 5px;
-      padding: 10px 20px;
-      font-size: 16px;
-    }
-    #size-controls {
-      display: flex;
-      gap: 5px;
-      margin-bottom: 10px;
-    }
-    /* visual divider between columns (grippy surface) */
-    #divider {
-      width: 18px;
-      border-radius: 6px;
-      cursor: col-resize;
-      align-self: stretch;
-      background: repeating-linear-gradient(90deg, #efefef 0 6px, #dedede 6px 12px);
-      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.04);
-    }
-  </style>
+  /* Left column (labels panel) */
+  #label_column {
+    display:flex;
+    flex-direction:column;
+    flex:1 1 0;
+    min-width:0;
+    max-width:1024px;
+    padding:12px;
+    background: var(--panel-bg);
+    border-radius: 14px;
+    box-shadow: var(--shadow-soft);
+  }
+
+  #labelHeading {
+    margin: 6px 0 10px;
+    font-weight: 700;
+    color: var(--purple-mid);
+  }
+
+  #label_imgs {
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    overflow:auto;
+    flex:1 1 0;
+    min-height:0;
+    padding-right: 4px;
+  }
+
+  /* Image preview cards */
+  .label-img-wrapper {
+    width:100%;
+    min-height:200px;
+    margin: 4px 0;
+    position: relative;
+    background-color: #faf7ff;
+    background-size:contain;
+    background-repeat:no-repeat;
+    background-position:center;
+    border-radius: 12px;
+    border: 1px solid var(--border-soft);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.4);
+  }
+
+  .labelimglabel {
+    background: linear-gradient(135deg, var(--orange-accent), #ffb347);
+    color: #3b2000;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-weight: 600;
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+    border: none;
+    white-space: nowrap;
+  }
+
+  /* Main game area */
+  .main {
+    flex:1;
+    overflow: auto;
+  }
+
+  #container {
+    position: relative;
+    width: 1200px;
+    height: 800px;
+    margin: 0 auto;
+    background: #222 no-repeat center center;
+    background-size: cover;
+    border-radius: 14px;
+    border: 2px solid rgba(255,255,255,0.35);
+    box-shadow: var(--shadow-soft);
+  }
+
+  /* Labels (draggable) */
+  .label {
+    position: absolute;
+    background: #ffffff;
+    border: 2px solid var(--orange-accent);
+    padding: 6px 12px;
+    border-radius: 999px;
+    cursor: move;
+    user-select: none;
+    font-weight: 600;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+  }
+
+  .label:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(0,0,0,0.35);
+  }
+
+  .label img {
+    user-select: none;
+    margin-left: 6px;
+    vertical-align: middle;
+    width: 75px;
+    border-radius: 6px;
+  }
+
+  .label.correct {
+    background: linear-gradient(135deg, #d4edda, #b7e4c7);
+    border-color: #2d6a4f;
+    color: #1b4332;
+    cursor: default;
+  }
+
+  .label.wrong {
+    background: linear-gradient(135deg, #f8d7da, #f1aeb5);
+    border-color: #842029;
+    color: #5a1a1a;
+  }
+
+  .label.magnet-snapped {
+    border: 3px solid var(--orange-accent);
+    box-shadow: 0 0 0 3px rgba(255,159,28,0.35);
+  }
+
+  /* Buttons */
+  button {
+    border-radius: 999px;
+    border: none;
+    padding: 8px 16px;
+    font-weight: 700;
+    cursor: pointer;
+    background: linear-gradient(135deg, var(--orange-accent), #ffb347);
+    color: #3b2000;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+  }
+
+  button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(0,0,0,0.35);
+  }
+
+  button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  #checkBtn {
+    margin-bottom: 8px;
+    font-size: 16px;
+  }
+
+  #size-controls {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+    justify-content: center;
+  }
+
+  /* Divider */
+  #divider {
+    width: 18px;
+    border-radius: 8px;
+    cursor: col-resize;
+    align-self: stretch;
+    background: linear-gradient(
+      180deg,
+      var(--orange-accent),
+      #ffb347
+    );
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.4);
+  }
+
+  /* Overlays */
+  #game-select-overlay,
+  #game-start-overlay {
+    position: fixed;
+    inset: 0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background: rgba(20, 0, 40, 1);
+    z-index: 9999;
+  }
+
+  #game-select-overlay .overlay-content,
+  #game-start-overlay .overlay-content {
+    background: var(--panel-bg);
+    padding: 24px;
+    border-radius: 18px;
+    max-width: 90%;
+    max-height: 90%;
+    overflow:auto;
+    box-shadow: var(--shadow-soft);
+  }
+
+  #game-list button {
+    display:block;
+    margin:8px 0;
+    width:100%;
+  }
+</style>
 </head>
 <body>
 
