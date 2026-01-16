@@ -138,7 +138,7 @@
     transition: box-shadow 0.15s ease, transform 0.15s ease;
   }
 
-  .label:hover {
+  .label:not(.correct):hover {
     transform: translateY(-1px);
     box-shadow: 0 6px 14px rgba(0,0,0,0.35);
   }
@@ -672,6 +672,7 @@ document.getElementById('checkBtn').addEventListener('click', () => {
       label.style.top = `${sol.y - label.offsetHeight / 2}px`;
       label.dataset.locked = 'true';
       label.classList.remove('wrong');
+      label.classList.remove('magnet-snapped');
       label.classList.add('correct');
     } else {
       label.classList.add('wrong');
