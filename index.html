@@ -76,6 +76,14 @@
     min-height: 0;
   }
 
+  #resetBtn {
+    background: #a1927c;
+    margin-bottom: 8px;
+    padding: 8px 8px;
+    font-size: 16px;
+    min-width: auto;
+  }
+
   /* Image preview cards */
   .label-img-wrapper {
     width: 100%;
@@ -298,7 +306,10 @@
 <div class="layout">
   <div class="content">
     <aside id="label_column">
-      <button id="checkBtn">Check</button>
+      <div style="display:flex; gap:8px; justify-content:center;">
+        <button id="checkBtn">Check</button>
+        <button id="resetBtn" title="Reset incorrect labels">↺</button>
+      </div>
       <h2 id="labelHeading">Label the Image</h2>
       <div id="size-controls">
         <button id="zoom-in">+</button>
@@ -360,6 +371,7 @@ const gameIndex = hasGameParam ? parseInt(gameParam) : null;
 
 let containerElem = null;
 let solution = null;
+let labelsCorrect = 0;
 const threshold = 80;
 const magnetSnapDistance = threshold;
 const cooldownSeconds = 10;
@@ -602,9 +614,14 @@ function tryMagnetSnap(label) {
 }
 
 function checkAllPlaced() {
-  const allCorrect = Object.keys(solution).every(id => {
+  let allCorrect = true;
+  labelsCorrect = 0;
+  Object.keys(solution).forEach(id => {
     const el = document.getElementById(id);
-    return el?.dataset.locked === 'true';
+    if (el?.dataset.locked === 'true') 
+      labelsCorrect++;
+    else
+      allCorrect = false;
   });
 
   if (allCorrect) {
@@ -617,7 +634,7 @@ function checkAllPlaced() {
 }
 
 function fireConfetti() {
-  confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+  confetti({ particleCount: 300, spread: 120, origin: { y: 0.6 } });
 }
 
 document.addEventListener('mouseup', () => { dragged = null; dividerDragging = false; });
@@ -682,15 +699,28 @@ document.getElementById('checkBtn').addEventListener('click', () => {
   if (!done) startCooldown();
 });
 
+document.getElementById('resetBtn').addEventListener('click', () => {
+  Object.keys(solution).forEach(id => {
+    const label = document.getElementById(id);
+    if (!label || label.dataset.locked === 'true') return;
+    const numId = parseInt(id.replace(/\D/g, '')) || 0;
+
+    label.style.left = `${20}px`;
+    label.style.top = `${40 + numId * 40}px`;
+    label.classList.remove('wrong', 'magnet-snapped');
+  });
+});
+
 function startCooldown() {
   const btn = document.getElementById('checkBtn');
+  const labelCount = Object.entries(solution).length;
   let secondsLeft = cooldownSeconds;
   btn.disabled = true;
-  btn.textContent = `Try again in ${secondsLeft}s`;
+  btn.textContent = `${labelsCorrect} / ${labelCount}. Try again in ${secondsLeft}s`;
   const interval = setInterval(() => {
     secondsLeft--;
-    btn.textContent = `Try again in ${secondsLeft}s`;
-    if (secondsLeft <= 0) { clearInterval(interval); btn.disabled = false; btn.textContent = 'Check'; }
+    btn.textContent = `${labelsCorrect} / ${labelCount}. Try again in ${secondsLeft}s`;
+    if (secondsLeft <= 0) { clearInterval(interval); btn.disabled = false; btn.textContent = `${labelsCorrect} / ${labelCount}. Check again`; }
   }, 1000);
 }
 
