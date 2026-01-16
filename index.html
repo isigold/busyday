@@ -13,6 +13,7 @@
     --panel-bg: rgba(255, 255, 255, 0.92);
     --border-soft: rgba(0,0,0,0.15);
     --shadow-soft: 0 8px 24px rgba(0,0,0,0.25);
+    --thumb-size: 160px;
   }
 
   body {
@@ -67,28 +68,27 @@
   }
 
   #label_imgs {
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-    overflow:auto;
-    flex:1 1 0;
-    min-height:0;
-    padding-right: 4px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--thumb-size), 1fr));
+    gap: 12px;
+    overflow: auto;
+    flex: 1 1 0;
+    min-height: 0;
   }
 
   /* Image preview cards */
   .label-img-wrapper {
-    width:100%;
-    min-height:200px;
-    margin: 4px 0;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    min-height: unset;
     position: relative;
     background-color: #faf7ff;
-    background-size:contain;
-    background-repeat:no-repeat;
-    background-position:center;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
     border-radius: 12px;
-    border: 1px solid var(--border-soft);
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.4);
+    border: 1px solid rgba(0,0,0,0.15);
+    cursor: pointer;
   }
 
   .labelimglabel {
@@ -246,6 +246,51 @@
     margin:8px 0;
     width:100%;
   }
+
+  /* Floating image preview */
+  #image-preview-overlay {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(30, 0, 60, 0.55);
+    z-index: 9000;
+  }
+
+  #image-preview-overlay img {
+    max-width: 85vw;
+    max-height: 85vh;
+    border-radius: 16px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+    background: white;
+  }
+
+  #preview-close {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    font-size: 22px;
+    padding: 6px 14px;
+    border-radius: 999px;
+  }
+  #hover-preview {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none; /* CRITICAL: does not block hover */
+    z-index: 50;
+  }
+
+  #hover-preview img {
+    max-width: 70%;
+    max-height: 70%;
+    border-radius: 14px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.45);
+    background: white;
+  }
 </style>
 </head>
 <body>
@@ -266,6 +311,9 @@
 
     <div class="main">
       <div id="container"></div>
+      <div id="hover-preview">
+        <img id="hover-preview-img" />
+      </div>
     </div>
   </div>
 </div>
@@ -281,6 +329,11 @@
         <h2 id="start-game-name"></h2>
         <button id="startGameBtn">Start</button>
       </div>
+    </div>
+
+    <div id="image-preview-overlay">
+      <button id="preview-close">✕</button>
+      <img id="preview-img" />
     </div>
 
 <script>
@@ -324,6 +377,41 @@ let dividerDragging = false;
 let dividerStartX = 0;
 let dividerStartLeft = 0;
 const dividerElemWidth = 18; // matches CSS
+
+const previewOverlay = document.getElementById('image-preview-overlay');
+const previewImg = document.getElementById('preview-img');
+const previewClose = document.getElementById('preview-close');
+const hoverPreview = document.getElementById('hover-preview');
+const hoverPreviewImg = document.getElementById('hover-preview-img');
+
+let previewPinned = false;
+
+function showPreview(src, pin = false) {
+  previewImg.src = src;
+  previewOverlay.style.display = 'flex';
+  if (pin) previewPinned = true;
+}
+
+function hidePreview(force = false) {
+  if (previewPinned && !force) return;
+  previewPinned = false;
+  previewOverlay.style.display = 'none';
+}
+
+function showHoverPreview(src) {
+  hoverPreviewImg.src = src;
+  hoverPreview.style.display = 'flex';
+}
+
+function hideHoverPreview() {
+  hoverPreview.style.display = 'none';
+}
+
+/* Close logic */
+previewClose.addEventListener('click', () => hidePreview(true));
+previewOverlay.addEventListener('click', (e) => {
+  if (e.target === previewOverlay) hidePreview(true);
+});
 
 function setViewScale(s) {
   viewScale = Math.max(minViewScale, Math.min(maxViewScale, s));
@@ -451,6 +539,23 @@ function init() {
       const wrapper = document.createElement('div');
       wrapper.className = 'label-img-wrapper';
       wrapper.style.backgroundImage = `url('${data.img}')`;
+
+      wrapper.addEventListener('mouseenter', () => {
+        if (!previewPinned) {
+          showHoverPreview(data.img);
+        }
+      });
+
+      wrapper.addEventListener('mouseleave', () => {
+        hideHoverPreview();
+      });
+
+      wrapper.addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideHoverPreview();        // avoid double visuals
+        showPreview(data.img, true); // fullscreen pin
+      });
+
       labelImgsDiv.appendChild(wrapper);
       const imglabel = document.createElement('div');
       imglabel.id = `img${id}`;
@@ -590,7 +695,16 @@ function startCooldown() {
 
 function updateImgSize() {
   const height = baseHeight * imgScale;
-  document.querySelectorAll('.label-img-wrapper').forEach(wrapper => { wrapper.style.minHeight = `${height}px`; });
+  const thumbSize = Math.max(120, height * 0.9);
+
+  document.documentElement.style.setProperty(
+    '--thumb-size',
+    `${thumbSize}px`
+  );
+
+  document.querySelectorAll('.label-img-wrapper').forEach(wrapper => {
+    wrapper.style.aspectRatio = '4 / 3';
+  });
 }
 
 document.getElementById('zoom-in').addEventListener('click', () => { imgScale = Math.min(imgScale + 0.1, 10); updateImgSize(); });
@@ -610,6 +724,5 @@ if (dividerElem) {
 }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-
 </body>
 </html>
